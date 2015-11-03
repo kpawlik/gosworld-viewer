@@ -22,3 +22,10 @@ _testmain.go
 *.exe
 *.test
 *.prof
+*.magikc
+*.log
+*.*~
+goworldc/goworldc
+goworldc/goworld
+*.zip
+goworldc/goworld.json
