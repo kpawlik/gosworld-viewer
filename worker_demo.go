@@ -6,7 +6,7 @@ import (
 )
 
 // GetTestResponse returns response object from worker
-func (t *Worker) GetTestResponse(request *Request, resp *Response) error {
+func (t *Worker) GetTestResponse(request *StandardRequest, resp *StandardResponse) error {
 	var (
 		testInt, resInt       int
 		ok                    bool

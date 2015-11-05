@@ -221,6 +221,16 @@ func (a *Acp) GetString() string {
 	return string(buf)
 }
 
+func (a *Acp) GetCoord() [2]float64 {
+	var (
+		res [2]float64
+	)
+	res[0] = a.GetFloat()
+	res[1] = a.GetFloat()
+	return res
+
+}
+
 // VerifyConnection verify Acp process name
 func (a *Acp) VerifyConnection(name string) bool {
 	acpName := a.GetString()

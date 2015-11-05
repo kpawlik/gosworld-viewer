@@ -12,11 +12,17 @@ import (
 )
 
 var (
-	pathToReques = map[string]string{
-		"list":   "Worker.ListObjectsFields",
-		"custom": "Worker.Custom",
+	reqFuncNameMap = map[string]string{
+		"list":     "Worker.ListObjectsFields",
+		"custom":   "Worker.Custom",
+		"features": "Worker.Features",
 	}
 )
+
+type Response interface {
+	GetError() error
+	GetBody() interface{}
+}
 
 // channels with workers connections
 type workerChan chan *WorkerConnection
@@ -124,10 +130,7 @@ func (r *ReqHandler) getRequestFunctionName(protocolName string) (string, bool) 
 	if r.WorkMode == TestMode {
 		return "Worker.GetTestResponse", true
 	}
-	if protocolName != "list" {
-		protocolName = "custom"
-	}
-	reqFucn, ok := pathToReques[protocolName]
+	reqFucn, ok := reqFuncNameMap[protocolName]
 	return reqFucn, ok
 
 }
@@ -175,6 +178,9 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		path, requestFuncName string
 		protocolName          string
 		ok                    bool
+		response              Response
+		request               interface{}
+		err                   error
 	)
 	defer func() {
 		if err := recover(); err != nil {
@@ -198,10 +204,16 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		r.writeErrorStatus(w, http.StatusUnauthorized)
 		return
 	}
-	response := &Response{}
-	request := &Request{
-		Path:     path,
-		Protocol: protocolConf}
+	if protocolName != "features" {
+		response = &StandardResponse{}
+		request = &StandardRequest{
+			Path:     path,
+			Protocol: protocolConf}
+	} else {
+		response = &FeaturesResponse{}
+		request = NewFeatureReques(path)
+	}
+
 	for {
 		// get free worker from online pool
 		worker := <-r.Online
@@ -217,14 +229,14 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			r.Offline <- worker
 		}
 	}
-	if response.Error != nil {
-		fmt.Fprintf(w, "%v", response.Error)
+	if err = response.GetError(); err != nil {
+		fmt.Fprintf(w, "%v", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
-	if err := enc.Encode(response.Body); err != nil {
+	if err := enc.Encode(response.GetBody()); err != nil {
 		log.Printf("Error Encode response body: %s\n", err)
 	}
 	log.Printf("Request. Protocol: '%s', Params: '%s', Processed in %v\n", protocolName, path, time.Now().Sub(start))

@@ -19,7 +19,27 @@ const (
 	TestMode
 )
 
-var modes = map[WorkMode]string{NormalMode: "normal", TestMode: "test"}
+var (
+	modes = map[WorkMode]string{NormalMode: "normal", TestMode: "test"}
+
+	incomeTypes = map[int]string{
+		1:  "boolean",
+		2:  "unsigned_byte",
+		3:  "signed_byte",
+		4:  "unsigned_short",
+		5:  "signed_short",
+		6:  "unsigned_int",
+		7:  "signed_int",
+		8:  "unsigned_long",
+		9:  "signed_long",
+		10: "short_float",
+		11: "float",
+		12: "chars",
+		13: "point",
+		14: "line",
+		15: "polygon",
+	}
+)
 
 func (w WorkMode) String() string {
 	return modes[w]
@@ -100,24 +120,4 @@ func ReadConf(filePath string) (conf *Config, err error) {
 func unmarshal(data []byte) (conf *Config, err error) {
 	err = json.Unmarshal(data, &conf)
 	return
-}
-
-// BodyElement is a type which is a part of JSON reposnse
-type BodyElement map[string]interface{}
-
-// Body list of BodyElemnts. JSON response object.
-type Body []BodyElement
-
-// Response struct
-// Body - result map (field, value) to json
-type Response struct {
-	Body  Body
-	Error error
-}
-
-//
-// Request struct
-type Request struct {
-	Path     string
-	Protocol *ProtocolConf
 }

@@ -3,7 +3,9 @@ package goworld
 import (
 	"encoding/gob"
 	"fmt"
+	"github.com/kpawlik/geojson"
 	"strconv"
+	"strings"
 )
 
 func init() {
@@ -102,4 +104,38 @@ func ParseStringParam(value, dataType string) (result interface{}, err error) {
 		err = NewAcpErr(fmt.Sprintf("Error parsing string parameter '%s' to data type '%s' ", value, dataType))
 	}
 	return
+}
+
+func parseBB(bbs string) (bb [4]float64, err error) {
+	var (
+		coord float64
+	)
+	bba := strings.Split(bbs, ",")
+	if len(bba) != 4 {
+		err = fmt.Errorf("Cannot parse bb from %s\n", bbs)
+		return
+	}
+	for i, scoord := range bba {
+		if coord, err = strconv.ParseFloat(scoord, 64); err != nil {
+			err = fmt.Errorf("Cannot parse bb from %s\n", bbs)
+			return
+		}
+		bb[i] = coord
+	}
+	return
+}
+
+func toCoordinate(arr [2]float64) geojson.Coordinate {
+	return geojson.Coordinate{
+		geojson.Coord(arr[0]),
+		geojson.Coord(arr[1]),
+	}
+}
+
+func toCoordinates(arr ...[2]float64) geojson.Coordinates {
+	return geojson.Coordinates{geojson.Coordinate{
+		geojson.Coord(arr[0]),
+		geojson.Coord(arr[1]),
+	},
+	}
 }
