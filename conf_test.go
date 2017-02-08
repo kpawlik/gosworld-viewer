@@ -1,4 +1,4 @@
-package goworld
+package gosworldviewer
 
 import (
 	"testing"

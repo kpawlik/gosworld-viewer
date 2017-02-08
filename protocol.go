@@ -1,4 +1,4 @@
-package goworld
+package gosworldviewer
 
 import (
 	"log"
@@ -11,19 +11,31 @@ type BodyElement map[string]interface{}
 // Body list of BodyElemnts. JSON response object.
 type Body []BodyElement
 
-// Response struct
+// StandardResponse struct
 // Body - result map (field, value) to json
 type StandardResponse struct {
 	Body  Body
 	Error error
 }
 
+//GetError return response error
 func (r *StandardResponse) GetError() error {
 	return r.Error
 }
 
+//GetBody return response body
 func (r *StandardResponse) GetBody() interface{} {
 	return r.Body
+}
+
+// SetError set response error
+func (r *StandardResponse) SetError(err error) {
+	r.Error = err
+}
+
+// SetBody set response body
+func (r *StandardResponse) SetBody(body interface{}) {
+	r.Body = body.(Body)
 }
 
 //

@@ -1,4 +1,4 @@
-package goworld
+package gosworldviewer
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	acp *Acp
+	acp IAcp
 )
 
 const (
@@ -28,12 +28,19 @@ func StartWorker(config *Config, name string, mode WorkMode) {
 	if workerDef == nil {
 		log.Fatalf("Error starting worker. No definition in config for name : %s\n", name)
 	}
-	// start ACP
-	acp = NewAcp(name)
+	switch mode {
+	case NormalMode:
+		acp = NewAcp(name)
+	case TestMode:
+		acp = NewTestAcp(name)
+	default:
+		return
+	}
 
 	if err := acp.Connect(name, 0, 1); err != nil {
 		log.Panicf("ACP Connection error: %v\n", err)
 	}
+
 	// register worker for RPC server
 	worker := &Worker{
 		Port:       workerDef.Port,

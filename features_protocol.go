@@ -1,6 +1,7 @@
-package goworld
+package gosworldviewer
 
 import (
+	//	"fmt"
 	"github.com/kpawlik/geojson"
 	"log"
 	"net/url"
@@ -21,6 +22,13 @@ func (r *FeaturesResponse) GetBody() interface{} {
 	return r.Body
 }
 
+func (r *FeaturesResponse) SetError(err error) {
+	r.Error = err
+}
+func (r *FeaturesResponse) SetBody(body interface{}) {
+	r.Body = body.(*geojson.FeatureCollection)
+}
+
 //
 // Request struct
 type FeaturesRequest struct {
@@ -29,59 +37,57 @@ type FeaturesRequest struct {
 	Values     url.Values
 }
 
-func NewFeatureReques(path string) *FeaturesRequest {
+func NewFeatureReques(reqUrl *url.URL) *FeaturesRequest {
 	var (
+		path                string
 		dataset, collection string
-		res                 []string
 		err                 error
-		u                   *url.URL
-		ok                  bool
 	)
-	if u, err = url.Parse(path); err != nil {
-		log.Fatalf("Wrong path '%s': %v\n", path, err)
+	if path, err = url.QueryUnescape(reqUrl.Path[1:]); err != nil {
+		log.Fatalf("Error unescape path '%s': %v\n", path, err)
 	}
-	if path, err = url.QueryUnescape(u.Path); err != nil {
-		log.Fatalf("Error unescape path '%s': %v\n", u.Path, err)
-	}
-	res = strings.Split(path, "/")
-	if ok = len(res) == 2; ok {
-		dataset = res[0]
-		collection = res[1]
-	}
-	values := u.Query()
 
+	if res := strings.Split(path, "/"); len(res) == 3 {
+		dataset = res[1]
+		collection = res[2]
+	}
+	values := reqUrl.Query()
 	return &FeaturesRequest{Dataset: dataset,
 		Collection: collection,
 		Values:     values,
 	}
 }
 
-func (w *Worker) Features(request *FeaturesRequest, resp *FeaturesResponse) error {
+func (w *Worker) Features(request *FeaturesRequest, resp *FeaturesResponse) (respErr error) {
 	var (
-		bb       [4]float64
-		err      error
-		geomType int
-		coord    geojson.Coordinate
-		geom     geojson.Geometry
+		bb    [4]float64
+		err   error
+		coord geojson.Coordinate
+		geom  geojson.Geometry
+		ok    bool
 	)
 	defer func() {
 		if r := recover(); r != nil {
-			log.Panicf("PANIC in method ListObjectsFields: %v\n", r.(error))
+			log.Panicf("PANIC in method Worker.Features: %v\n", r.(error))
 		}
 	}()
-	if bb, err = parseBB(request.Values["bb"][0]); err != nil {
-		resp.Error = err
-		return nil
+	if _, ok = request.Values["bb"]; ok {
+		if bb, err = parseBB(request.Values["bb"][0]); err != nil {
+			resp.SetError(NewAcpErrf("%v", err))
+			return
+		}
 	}
 	_ = bb
+
 	// send protocol name to ACP
+	log.Printf("Dataset? %v", request.Dataset)
 	acp.PutString(request.Dataset)
 	// send path
 	acp.PutString(request.Collection)
 	// get status
 
 	if err := w.checkAcpStatus(); err != nil {
-		resp.Error = err
+		resp.SetError(err)
 		return nil
 	}
 	noOfRecs := acp.GetUint()
@@ -90,8 +96,7 @@ func (w *Worker) Features(request *FeaturesRequest, resp *FeaturesResponse) erro
 	//	body := make(Body, 0, noOfRecs)
 	fc := geojson.NewFeatureCollection(nil)
 	for i := 0; i < noOfRecs; i++ {
-		geomType = acp.GetUbyte()
-		switch incomeTypes[geomType] {
+		switch acp.GetType() {
 		case "point":
 			coord = toCoordinate(acp.GetCoord())
 			geom = geojson.NewPoint(coord)
@@ -110,10 +115,16 @@ func (w *Worker) Features(request *FeaturesRequest, resp *FeaturesResponse) erro
 			}
 			geom = line
 		}
-
-		f := geojson.NewFeature(geom, nil, nil)
+		noOfFields := acp.GetUint()
+		fields := make(map[string]interface{})
+		for j := 0; j < noOfFields; j++ {
+			name := acp.GetString()
+			value := acp.GetString()
+			fields[name] = value
+		}
+		f := geojson.NewFeature(geom, fields, nil)
 		fc.AddFeatures(f)
 	}
-	resp.Body = fc
+	resp.SetBody(fc)
 	return nil
 }

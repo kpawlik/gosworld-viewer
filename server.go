@@ -1,4 +1,4 @@
-package goworld
+package gosworldviewer
 
 import (
 	"encoding/json"
@@ -22,6 +22,8 @@ var (
 type Response interface {
 	GetError() error
 	GetBody() interface{}
+	SetError(error)
+	SetBody(interface{})
 }
 
 // channels with workers connections
@@ -178,7 +180,7 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		path, requestFuncName string
 		protocolName          string
 		ok                    bool
-		response              Response
+		response              interface{}
 		request               interface{}
 		err                   error
 	)
@@ -189,16 +191,21 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 	start := time.Now()
 	path = req.URL.Path[1:]
+
+	log.Printf("Path: %s", path)
 	// check path
 	if protocolName, path, ok = r.parsePath(path); !ok {
 		r.writeErrorStatus(w, http.StatusMethodNotAllowed)
 		return
 	}
+	log.Printf("Path: %s", path)
+	log.Printf("Protocol name: %s", protocolName)
 	// check request function name
 	if requestFuncName, ok = r.getRequestFunctionName(protocolName); !ok {
 		r.writeErrorStatus(w, http.StatusMethodNotAllowed)
 		return
 	}
+	log.Printf("requestFuncName: %s", requestFuncName)
 	protocolConf := r.getProtocolConf(protocolName)
 	if !r.checkProtocolConf(protocolConf) {
 		r.writeErrorStatus(w, http.StatusUnauthorized)
@@ -211,14 +218,14 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			Protocol: protocolConf}
 	} else {
 		response = &FeaturesResponse{}
-		request = NewFeatureReques(path)
+		request = NewFeatureReques(req.URL)
 	}
 
 	for {
 		// get free worker from online pool
 		worker := <-r.Online
 		conn := worker.Conn
-		if err := conn.Call(requestFuncName, request, &response); err == nil {
+		if err := conn.Call(requestFuncName, request, response); err == nil {
 			// return worker to the online pool
 			r.Online <- worker
 			break
@@ -229,14 +236,14 @@ func (r *ReqHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			r.Offline <- worker
 		}
 	}
-	if err = response.GetError(); err != nil {
+	if err = response.(Response).GetError(); err != nil {
 		fmt.Fprintf(w, "%v", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
-	if err := enc.Encode(response.GetBody()); err != nil {
+	if err := enc.Encode(response.(Response).GetBody()); err != nil {
 		log.Printf("Error Encode response body: %s\n", err)
 	}
 	log.Printf("Request. Protocol: '%s', Params: '%s', Processed in %v\n", protocolName, path, time.Now().Sub(start))

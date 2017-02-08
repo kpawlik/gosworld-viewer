@@ -1,4 +1,4 @@
-package goworld
+package gosworldviewer
 
 import (
 	"encoding/gob"
@@ -10,6 +10,9 @@ import (
 
 func init() {
 	gob.Register(NewAcpErr(""))
+	gob.Register(&FeaturesResponse{})
+	gob.Register(&geojson.Point{})
+
 }
 
 func portNo(port int) string {
@@ -26,6 +29,9 @@ func (err *AcpErr) Error() string {
 
 func NewAcpErr(msg string) *AcpErr {
 	return &AcpErr{msg}
+}
+func NewAcpErrf(format string, args ...interface{}) *AcpErr {
+	return &AcpErr{fmt.Sprintf(format, args...)}
 }
 
 func ParseStringParam(value, dataType string) (result interface{}, err error) {

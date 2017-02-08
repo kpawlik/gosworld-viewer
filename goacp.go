@@ -1,4 +1,4 @@
-package goworld
+package gosworldviewer
 
 import (
 	"bufio"
@@ -363,4 +363,9 @@ func (a *Acp) Get(dataType string) (value interface{}, err *AcpErr) {
 	default:
 		return nil, NewAcpErr(fmt.Sprintf("Unsuported data type '%s' in Get method", dataType))
 	}
+}
+
+func (a *Acp) GetType() string {
+	geomType := a.GetUbyte()
+	return incomeTypes[geomType]
 }
